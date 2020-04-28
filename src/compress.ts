@@ -252,7 +252,7 @@ export const toByteArray = (compressed: ReturnType<typeof compress>) => {
         return undefined
     }
 
-    const out = Buffer.from([
+    const out = new Uint8Array([
         ...(compressed.encoding === BigInt(0b1111)
             ? []
             : toBytes(compressed.base, compressed.baseSize)),
