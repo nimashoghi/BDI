@@ -2,7 +2,7 @@
     "name": "base-delta-immediate-compression",
     "version": "1.0.0",
     "scripts": {
-        "deploy:gh-pages": "rm -rf ./dist/ && parcel build ./index.html && gh-pages -d dist",
+        "deploy:gh-pages": "rm -rf ./dist/ && parcel build --public-url ./ ./index.html && gh-pages -d dist",
         "build": "tsc --build",
         "watch": "tsc --build --watch"
     },
