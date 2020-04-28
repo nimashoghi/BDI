@@ -1,0 +1,21 @@
+{
+    "name": "base-delta-immediate-compression",
+    "version": "1.0.0",
+    "scripts": {
+        "build": "tsc --build",
+        "watch": "tsc --build --watch"
+    },
+    "main": "dist/index.js",
+    "license": "MIT",
+    "devDependencies": {
+        "@nimashoghi/eslint-config": "^0.0.7",
+        "@types/jest": "^25.2.1",
+        "@types/node": "^13.13.4",
+        "eslint": "^6.8.0",
+        "jest": "^25.4.0",
+        "prettier": "^2.0.5",
+        "ts-jest": "^25.4.0",
+        "ts-node": "^8.9.1",
+        "typescript": "^3.8.3"
+    }
+}
