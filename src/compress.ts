@@ -1,4 +1,5 @@
 interface Element {
+    base?: bigint
     size: bigint
     value: bigint
 }
@@ -8,11 +9,14 @@ const baseDelta = (
     size: bigint,
     base: bigint,
 ) =>
-    buffer.map((element) =>
-        element.value - base > limit
+    buffer.map((element) => {
+        if (element.base !== undefined) {
+            return element
+        }
+        return element.value - base > limit
             ? {base: undefined, ...element}
-            : {base, size, value: element.value - base},
-    )
+            : {base, size, value: element.value - base}
+    })
 
 const sizeToLimit = (size: bigint) => {
     switch (size) {
@@ -32,12 +36,12 @@ const sizeToLimit = (size: bigint) => {
 const makeTag = (index: bigint, encoding: bigint, base: bigint) =>
     (index << BigInt(5)) |
     (encoding << BigInt(1)) |
-    (base === BigInt(0) ? BigInt(0x0) : BigInt(0x1))
+    (base === BigInt(0) ? BigInt(0) : BigInt(1))
 
 const processTag = (tag: bigint) => ({
-    encoding: (tag >> BigInt(0x1)) & BigInt(0b1111),
-    index: tag >> BigInt(0x5),
-    isZeroBase: !((tag & BigInt(0x1)) === BigInt(0b1)),
+    encoding: (tag >> BigInt(1)) & BigInt(0b1111),
+    index: tag >> BigInt(5),
+    isZeroBase: !((tag & BigInt(1)) === BigInt(0b1)),
 })
 
 interface CompressionConfig {
@@ -48,12 +52,25 @@ interface CompressionConfig {
 }
 const compressWith = (
     buffer: Element[],
-    {baseSize, deltaSize, encoding}: CompressionConfig,
+    {baseSize, deltaSize, encoding, name}: CompressionConfig,
 ) => {
     const baseLimit = sizeToLimit(baseSize)
     const deltaLimit = sizeToLimit(deltaSize)
 
     const buffer_ = baseDelta(buffer, deltaLimit, deltaSize, BigInt(0))
+    if (buffer_.every((element) => element.base !== undefined)) {
+        return {
+            base: BigInt(0),
+            baseSize,
+            elements: buffer_.map((element, i) => ({
+                ...element,
+                tag: makeTag(BigInt(i), encoding, element.base ?? BigInt(0)),
+            })),
+            size:
+                baseSize +
+                buffer_.reduce((acc, element) => acc + element.size, BigInt(0)),
+        }
+    }
     const baseIndex = buffer_.findIndex(
         (element) => element.base === undefined && element.value < baseLimit,
     )
@@ -68,6 +85,7 @@ const compressWith = (
         buffer_[baseIndex].value,
     )
     if (!final.every((element) => element.base !== undefined)) {
+        console.log(`Couldn't find compression for ${name}`)
         return undefined
     }
     return {
@@ -147,6 +165,7 @@ interface CompressedOutput {
         value: bigint
     }[]
     encoding: bigint
+    name: string
     size: bigint
 }
 
@@ -154,58 +173,61 @@ export const tryCompress = (
     buffer: BigUint64Array,
 ): CompressedOutput | undefined => {
     const elements = bufferToElement(buffer)
+    const runs: CompressedOutput[] = []
+
     if (buffer.every((x) => x === BigInt(0))) {
-        return {
+        runs.push({
             base: BigInt(0),
             baseSize: BigInt(1),
-            elements: [
-                {
-                    base: BigInt(0),
-                    size: BigInt(1),
-                    tag: makeTag(BigInt(0), BigInt(0b0000), BigInt(0)),
-                    value: BigInt(0),
-                },
-            ],
+            elements: [...buffer].map((value, i) => ({
+                base: BigInt(0),
+                size: BigInt(0),
+                tag: makeTag(BigInt(i), BigInt(0b0000), BigInt(0)),
+                value,
+            })),
             encoding: BigInt(0b0000),
+            name: "zeros",
             size: BigInt(1),
-        }
+        })
     }
 
     if (buffer.every((x) => x === buffer[0])) {
-        return {
-            base: BigInt(0),
+        runs.push({
+            base: buffer[0],
             baseSize: BigInt(8),
-            elements: [
-                {
-                    base: buffer[0],
-                    size: BigInt(8),
-                    tag: makeTag(BigInt(0), BigInt(0b0001), BigInt(0)),
-                    value: buffer[0],
-                },
-            ],
+            elements: [...buffer].map((value, i) => ({
+                base: buffer[0],
+                size: BigInt(0),
+                tag: makeTag(BigInt(i), BigInt(0b0001), buffer[0]),
+                value,
+            })),
             encoding: BigInt(0b0000),
+            name: "repeated_values",
             size: BigInt(8),
-        }
+        })
     }
 
-    const compressed = configs
-        .map((config) => {
-            const value = compressWith(elements, config)
-            if (value === undefined) {
-                return undefined
-            }
-            return {
+    const baseDeltaRuns: CompressedOutput[] = configs.flatMap((config) => {
+        const value = compressWith(elements, config)
+        if (value === undefined) {
+            return []
+        }
+        return [
+            {
                 ...value,
                 encoding: config.encoding,
                 name: config.name,
-            }
-        })
-        .reduce((prev, curr) =>
+            },
+        ]
+    })
+    const compressed = [...runs, ...baseDeltaRuns].reduce(
+        (prev, curr) =>
             (prev?.size ?? Number.MAX_SAFE_INTEGER) >
             (curr?.size ?? Number.MAX_SAFE_INTEGER)
                 ? curr
                 : prev,
-        )
+        undefined as CompressedOutput | undefined,
+    )
 
     if (compressed === undefined) {
         console.log("couldn't find good compression")
@@ -220,26 +242,30 @@ export const compress = (buffer: BigUint64Array): CompressedOutput =>
     tryCompress(buffer) ?? {
         base: BigInt(0),
         baseSize: BigInt(0),
-        elements: [...buffer].map((value) => ({
+        elements: [...buffer].map((value, i) => ({
             base: undefined,
             size: BigInt(0x8),
-            tag: makeTag(BigInt(0), BigInt(0b1111), BigInt(0)),
+            tag: makeTag(BigInt(i), BigInt(0b1111), BigInt(0)),
             value,
         })),
         encoding: BigInt(0b1111),
+        name: "no_compression",
         size: BigInt(buffer.length) * BigInt(8),
     }
 
 export const toArray = (compressed: ReturnType<typeof compress>) => {
     const out = compressed.elements.map((element) => element.value)
-    if (
-        new Uint8Array(
-            compressed.elements.flatMap((element) =>
-                toBytes(element.value, element.size),
-            ),
-        ).length !== Number(compressed.size - compressed.baseSize)
-    ) {
-        throw new Error("wat")
+
+    const actualLength = new Uint8Array(
+        compressed.elements.flatMap((element) =>
+            toBytes(element.value, element.size),
+        ),
+    ).length
+    const expectedLength = Number(compressed.size - compressed.baseSize)
+    if (actualLength !== expectedLength) {
+        throw new Error(
+            `[toArray]: Expected byte length to be ${expectedLength} but is ${actualLength}`,
+        )
     }
     return [
         ...(compressed.encoding === BigInt(0b1111) ? [] : [compressed.base]),
@@ -248,21 +274,21 @@ export const toArray = (compressed: ReturnType<typeof compress>) => {
 }
 
 export const toByteArray = (compressed: ReturnType<typeof compress>) => {
-    if (compressed === undefined) {
-        return undefined
-    }
-
     const out = new Uint8Array([
-        ...(compressed.encoding === BigInt(0b1111)
-            ? []
-            : toBytes(compressed.base, compressed.baseSize)),
+        ...toBytes(compressed.base, compressed.baseSize),
         ...compressed.elements.flatMap((element) =>
             toBytes(element.value, element.size),
         ),
     ])
 
+    const actualLength = out.length
+    const expectedLength = Number(compressed.size)
     if (out.length !== Number(compressed.size)) {
-        throw new Error("wat")
+        throw new Error(
+            `[toByteArray with encoding ${compressed.encoding.toString(
+                2,
+            )}]: Expected byte length to be ${expectedLength} but is ${actualLength}`,
+        )
     }
     return out
 }
@@ -286,7 +312,7 @@ export const decompress = (buffer: ArrayBufferLike, tag: bigint) => {
 
     switch (encoding) {
         case BigInt(0b0000):
-            return 0
+            return BigInt(0)
         case BigInt(0b0001):
             return new BigUint64Array(buffer.slice(0, 8))[0]
         default:

@@ -1,0 +1,61 @@
+<html>
+    <body>
+        <div>
+            Compress (Each line is interpreted as a single 64 bit integer)
+            <div style="display: flex;">
+                <textarea
+                    id="compressInput"
+                    cols="50"
+                    rows="18"
+                    placeholder="Input Bytes"
+                ></textarea>
+
+                <button onclick="window.compress()">=></button>
+
+                <textarea
+                    id="compressOutput"
+                    cols="50"
+                    rows="18"
+                    placeholder="Output"
+                    readonly
+                ></textarea>
+            </div>
+            <div></div>
+        </div>
+
+        <br />
+        <br />
+        <br />
+        <br />
+
+        <div>
+            Decompress
+            <div style="display: flex;">
+                <div>
+                    <div>
+                        <textarea
+                            id="decompressInput"
+                            cols="30"
+                            rows="5"
+                            placeholder="Block"
+                        ></textarea>
+                    </div>
+                    <input id="decompressTag" type="text" placeholder="Tag" />
+                </div>
+
+                <button onclick="window.decompress()">=></button>
+
+                <textarea
+                    id="decompressOutput"
+                    cols="50"
+                    rows="18"
+                    placeholder="Output"
+                    readonly
+                ></textarea>
+            </div>
+            <div></div>
+        </div>
+
+        <script src="./src/index.ts"></script>
+    </body>
+</html>
