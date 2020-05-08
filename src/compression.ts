@@ -38,16 +38,16 @@ const baseDelta = (
     return buffer.map((element) => {
         if (element.base !== undefined) {
             return element
+        }
+
+        const delta = element.value - base
+        if (delta > limit) {
+            return {base: undefined, ...element}
         } else {
-            const delta = element.value - base
-            if (delta > limit) {
-                return {base: undefined, ...element}
-            } else {
-                return {
-                    base: {index: baseIndex, value: base},
-                    size,
-                    value: delta,
-                }
+            return {
+                base: {index: baseIndex, value: base},
+                size,
+                value: delta,
             }
         }
     })
@@ -95,7 +95,6 @@ const compressBase = (
     }
 
     size += elements.reduce((acc, {size}) => acc + size, 0n)
-
     return {bases, elements, name, originalSize, size}
 }
 
