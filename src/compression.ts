@@ -96,13 +96,7 @@ const compressBase = (
 
     size += elements.reduce((acc, {size}) => acc + size, 0n)
 
-    return {
-        bases,
-        elements,
-        name,
-        originalSize,
-        size,
-    }
+    return {bases, elements, name, originalSize, size}
 }
 
 export const compress = (buffer: Int[], configs: CompressionConfig[]) => {
