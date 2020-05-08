@@ -1,7 +1,9 @@
-export const zip = <A, B>(a: A[], b: B[]) => {
-    const array: [A, B][] = []
-    for (let i = 0; i < Math.max(a.length, b.length); ++i) {
-        array.push([a[i], b[i]])
+export const assertDefined = <T>(value: T | undefined | null) => {
+    if (value === undefined || value === null) {
+        throw new Error(`Value cannot be undefined or null!`)
     }
-    return array
+    return value
 }
+
+export const enumerate = <T>(value: T[]) =>
+    value.map((value, i) => [value, i] as const)
