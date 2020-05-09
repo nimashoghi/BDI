@@ -52,7 +52,8 @@ const configs: CompressionConfig[] = [
 export default configs
 
 export const compress = (buffer: bigint[]) => {
-    const {bases, elements} = compress_(buffer, configs)
+    const {bases, elements, name, size} = compress_(buffer, configs)
+    console.log(`Compressed with ${name} and out size ${size}`)
     return [
         ...bases
             .filter(

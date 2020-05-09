@@ -23,9 +23,9 @@ export interface CompressionConfig {
 }
 
 const sizeToLimit = (size: Int) =>
-    Array.from(Array(Number(size)), (_, i) => 0b1n << Int(i)).reduce(
+    Array.from(Array(Number(size)), (_, i) => Int(i) << Int(i)).reduce(
         (acc, curr) => acc | curr,
-        0n,
+        Int(0),
     )
 
 const baseDelta = (
@@ -73,7 +73,7 @@ const compressBase = (
                 value,
             }),
         ),
-        0n,
+        Int(0),
     ]
 
     // make a full copy so we don't edit the param
@@ -94,7 +94,7 @@ const compressBase = (
         return undefined
     }
 
-    size += elements.reduce((acc, {size}) => acc + size, 0n)
+    size += elements.reduce((acc, {size}) => acc + size, Int(0))
     return {bases, elements, name, originalSize, size}
 }
 
